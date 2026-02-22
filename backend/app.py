@@ -8,12 +8,22 @@ from typing import Optional
 from flask import Flask, jsonify, send_from_directory
 from flask_cors import CORS
 
-try:
-    import geopandas as gpd
-    import pandas as pd
-    HAS_GPD = True
-except ImportError:
-    HAS_GPD = False
+HAS_GPD = False
+gpd = None
+pd = None
+
+def _load_gpd():
+    global gpd, pd, HAS_GPD
+    if not HAS_GPD:
+        try:
+            import geopandas as _gpd
+            import pandas as _pd
+            gpd = _gpd
+            pd = _pd
+            HAS_GPD = True
+        except ImportError:
+            pass
+    return HAS_GPD
 
 try:
     from watchdog.observers import Observer
@@ -75,7 +85,7 @@ def make_style(ltype, color):
     return s
 
 def load_shp(path):
-    if not HAS_GPD: return None
+    if not _load_gpd(): return None
     try:
         gdf = gpd.read_file(path)
         if gdf.crs is None: gdf = gdf.set_crs("EPSG:4326")
