@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>GeoPortal — Spatial Intelligence Platform</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css"/>
+<link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+<link rel="stylesheet" href="css/style.css"/>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="gp-header">
+  <div class="gp-brand">
+    <svg class="gp-logo" viewBox="0 0 36 36"><polygon points="18,3 33,11 33,25 18,33 3,25 3,11" fill="none" stroke="#00d4ff" stroke-width="1.5"/><circle cx="18" cy="18" r="5" fill="#00d4ff"/><line x1="18" y1="3" x2="18" y2="13" stroke="#00d4ff" stroke-width="1" opacity="0.4"/><line x1="18" y1="23" x2="18" y2="33" stroke="#00d4ff" stroke-width="1" opacity="0.4"/><line x1="33" y1="11" x2="23" y2="15" stroke="#00d4ff" stroke-width="1" opacity="0.4"/><line x1="13" y1="21" x2="3" y2="25" stroke="#00d4ff" stroke-width="1" opacity="0.4"/></svg>
+    <div>
+      <div class="gp-brand-name">GeoPortal</div>
+      <div class="gp-brand-sub">Spatial Intelligence Platform</div>
+    </div>
+  </div>
+
+  <div class="gp-toolbar">
+    <!-- Layer panel toggle -->
+    <button class="tb-btn active" id="tb-layers" onclick="togglePanel()" title="Layers">
+      <i class="fa-solid fa-layer-group"></i><span>Layers</span>
+    </button>
+    <div class="tb-sep"></div>
+
+    <!-- Polygon area -->
+    <button class="tb-btn" id="tb-polygon" onclick="activateTool('polygon')" title="Draw Polygon & Measure Area">
+      <i class="fa-solid fa-draw-polygon"></i><span>Area</span>
+    </button>
+    <!-- Line distance -->
+    <button class="tb-btn" id="tb-line" onclick="activateTool('line')" title="Measure Line Distance">
+      <i class="fa-solid fa-ruler"></i><span>Distance</span>
+    </button>
+    <!-- Buffer -->
+    <button class="tb-btn" id="tb-buffer" onclick="activateTool('buffer')" title="Point Buffer Tool">
+      <i class="fa-solid fa-circle-dot"></i><span>Buffer</span>
+    </button>
+    <!-- P2P -->
+    <button class="tb-btn" id="tb-p2p" onclick="activateTool('p2p')" title="Point-to-Point Distance">
+      <i class="fa-solid fa-arrows-left-right"></i><span>P2P</span>
+    </button>
+    <div class="tb-sep"></div>
+
+    <!-- Clear -->
+    <button class="tb-btn" id="tb-clear" onclick="clearAll()" title="Clear All Drawings">
+      <i class="fa-solid fa-trash-can"></i><span>Clear</span>
+    </button>
+    <!-- Refresh -->
+    <button class="tb-btn" id="tb-refresh" onclick="refreshLayers()" title="Refresh Layers from Server">
+      <i class="fa-solid fa-rotate"></i><span>Refresh</span>
+    </button>
+  </div>
+
+  <div class="gp-status-bar">
+    <span class="status-indicator" id="srv-dot"></span>
+    <span class="status-label" id="srv-txt">Connecting…</span>
+    <span class="coord-pill" id="coord-pill">-- , --</span>
+  </div>
+</header>
+
+<!-- BODY -->
+<div class="gp-body">
+
+  <!-- LAYER PANEL -->
+  <aside class="layer-panel" id="layer-panel">
+    <div class="lp-head">
+      <span><i class="fa-solid fa-layer-group"></i> Layer Manager</span>
+      <button onclick="togglePanel()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+
+    <div class="lp-filters">
+      <button class="lf-btn active" data-t="all"      onclick="filterType('all',this)">All</button>
+      <button class="lf-btn"        data-t="polygon"   onclick="filterType('polygon',this)"><i class="fa-solid fa-square" style="color:#81C784"></i> Poly</button>
+      <button class="lf-btn"        data-t="polyline"  onclick="filterType('polyline',this)"><i class="fa-solid fa-minus" style="color:#4DD0E1"></i> Line</button>
+      <button class="lf-btn"        data-t="point"     onclick="filterType('point',this)"><i class="fa-solid fa-circle" style="color:#F06292"></i> Point</button>
+    </div>
+
+    <div class="lp-list" id="lp-list">
+      <div class="lp-loading"><i class="fa-solid fa-spinner fa-spin"></i> Loading layers…</div>
+    </div>
+
+    <div class="lp-foot">
+      <button onclick="bulkVisibility(true)"><i class="fa-solid fa-eye"></i> Show All</button>
+      <button onclick="bulkVisibility(false)"><i class="fa-solid fa-eye-slash"></i> Hide All</button>
+      <button onclick="fitAll()"><i class="fa-solid fa-expand"></i> Fit All</button>
+    </div>
+  </aside>
+
+  <!-- MAP -->
+  <div class="map-wrap" id="map-wrap">
+    <div id="map"></div>
+
+    <!-- Active tool hint bar -->
+    <div class="tool-hint hidden" id="tool-hint">
+      <i class="fa-solid fa-crosshairs fa-beat-fade"></i>
+      <span id="tool-hint-txt"></span>
+      <button class="tool-hint-cancel" onclick="cancelTool()"><i class="fa-solid fa-xmark"></i> Cancel</button>
+    </div>
+
+    <!-- Custom zoom -->
+    <div class="zoom-ctrl">
+      <button onclick="map.zoomIn()"  title="Zoom in"><i class="fa-solid fa-plus"></i></button>
+      <button onclick="map.zoomOut()" title="Zoom out"><i class="fa-solid fa-minus"></i></button>
+      <button onclick="fitAll()"      title="Fit to data"><i class="fa-solid fa-expand"></i></button>
+    </div>
+
+    <!-- Basemap switcher -->
+    <div class="basemap-sw">
+      <div class="bm-label">Basemap</div>
+      <div class="bm-options">
+        <div class="bm-opt active" data-bm="dark"      onclick="setBasemap('dark')"><div class="bm-thumb bm-dark"></div><span>Dark</span></div>
+        <div class="bm-opt"        data-bm="satellite" onclick="setBasemap('satellite')"><div class="bm-thumb bm-sat"></div><span>Satellite</span></div>
+        <div class="bm-opt"        data-bm="street"    onclick="setBasemap('street')"><div class="bm-thumb bm-osm"></div><span>Street</span></div>
+        <div class="bm-opt"        data-bm="topo"      onclick="setBasemap('topo')"><div class="bm-thumb bm-topo"></div><span>Topo</span></div>
+      </div>
+    </div>
+
+    <!-- Scale pill -->
+    <div class="scale-pill" id="scale-pill"></div>
+  </div>
+
+</div><!-- /gp-body -->
+
+<!-- ═══ RESULTS PANEL (slides in from bottom-left) ═══ -->
+<div class="results-panel hidden" id="results-panel">
+  <div class="rp-head">
+    <span id="rp-title"><i class="fa-solid fa-ruler-combined"></i> Measurement</span>
+    <button onclick="closeResults()"><i class="fa-solid fa-xmark"></i></button>
+  </div>
+  <div class="rp-body" id="rp-body"></div>
+</div>
+
+<!-- ═══ FEATURE INFO PANEL (top-right) ═══ -->
+<div class="feat-panel hidden" id="feat-panel">
+  <div class="fp-head">
+    <span id="fp-title">Feature Info</span>
+    <button onclick="closeFeat()"><i class="fa-solid fa-xmark"></i></button>
+  </div>
+  <div class="fp-body" id="fp-body"></div>
+</div>
+
+<!-- ═══ BUFFER SIDE PANEL ═══ -->
+<div class="buf-panel hidden" id="buf-panel">
+  <div class="buf-head">
+    <i class="fa-solid fa-circle-dot"></i>
+    <span>Buffer Tool</span>
+    <button onclick="cancelTool()"><i class="fa-solid fa-xmark"></i></button>
+  </div>
+  <div class="buf-body">
+    <div class="buf-step" id="buf-step1">
+      <div class="buf-step-num">1</div>
+      <div class="buf-step-desc">
+        <strong>Click any point on the map</strong><br>
+        <span>to set the buffer center</span>
+      </div>
+      <i class="fa-solid fa-crosshairs buf-step-icon fa-beat-fade"></i>
+    </div>
+    <div class="buf-step hidden" id="buf-step2">
+      <div class="buf-step-num done">✓</div>
+      <div class="buf-step-desc">
+        <strong>Center point placed</strong><br>
+        <span id="buf-coord-txt">lat, lng</span>
+      </div>
+    </div>
+    <div class="buf-inputs hidden" id="buf-inputs">
+      <label class="buf-lbl">Buffer Distance</label>
+      <div class="buf-row">
+        <input type="number" id="buf-dist" value="500" min="1" max="999999" step="1"/>
+        <select id="buf-unit">
+          <option value="m">Meters</option>
+          <option value="km">Kilometers</option>
+          <option value="ft">Feet</option>
+          <option value="mi">Miles</option>
+        </select>
+      </div>
+      <button class="buf-apply" onclick="applyBuffer()">
+        <i class="fa-solid fa-circle-check"></i> Generate Buffer
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast-stack" id="toast-stack"></div>
+
+<!-- Scripts -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
